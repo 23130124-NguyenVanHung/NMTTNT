@@ -1,0 +1,5 @@
+eclipse.preferences.version=1
+encoding//src/sudoku/GUI.java=UTF-8
+encoding//src/sudoku/Hill_Climbing.java=UTF-8
+encoding//src/sudoku/Simulated_Annealing.java=UTF-8
+encoding//src/sudoku/Sudoku.java=UTF-8
