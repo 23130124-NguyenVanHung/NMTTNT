@@ -16,7 +16,8 @@ public class GUI extends JFrame
     private Solver hill = new Hill_Climbing();
     private Solver sia = new Simulated_Annealing();
     private Random rd = new Random();
-
+    
+// ====== GIAO DIỆN GAME ======
     public GUI()
     {
         setTitle("Game - Sudoku");
@@ -26,6 +27,7 @@ public class GUI extends JFrame
         JPanel gridPanel = new JPanel(new GridLayout(9, 9));
         Font cellFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
 
+//	LẤP ĐẦY PUZZLE RA MÀN HÌNH GAME
         for (int r = 0; r < 9; r++)
         {
             for (int c = 0; c < 9; c++)
@@ -82,7 +84,8 @@ public class GUI extends JFrame
                 });
 
                 cells[r][c] = tf;
-
+                
+// 		PHÂN VÙNG CÁC VÙNG 3x3 VÀ TÔ VIỀN ĐỂ DỄ CHƠI VÀ CHECK KHI SINH NGẪU NHIÊN
                 JPanel cellWrapper = new JPanel(new BorderLayout());
                 cellWrapper.add(tf, BorderLayout.CENTER);
 
@@ -97,35 +100,61 @@ public class GUI extends JFrame
         }
 
         add(gridPanel, BorderLayout.CENTER);
-
+        
+// 	=== THANH CHỨA CÁC NÚT CỦA GAME ===
         JPanel bottom = new JPanel();
-
+	
         JButton autoBtn = new JButton("Complete");
         autoBtn.addActionListener(e -> {
             autoBtn.setEnabled(false);
 
-            String error = validatePuzzle(puzzle);
-            if (error != null) 
-            {
-                JOptionPane.showMessageDialog(this, "Invalid puzzle: " + error);
-                autoBtn.setEnabled(true);
-                return;
+            // Kiểm tra nếu toàn bộ bảng không có dữ liệu
+            boolean isEmpty = true;
+            for (int r = 0; r < 9; r++) {
+                for (int c = 0; c < 9; c++) {
+                    if (puzzle.get(r, c) != 0) {
+                        isEmpty = false;
+                        break;
+                    }
+                }
+                if (!isEmpty) break;
             }
 
-            Solver sol = gene; // có thể đổi hill hoặc sia
-            Sudoku solution = sol.solve(puzzle.clone());
-            if (solution != null) 
-            {
-                puzzle = solution;
-                refreshUIFromModel();
-                JOptionPane.showMessageDialog(this, "Solved using: " + sol.getClass().getSimpleName());
-            } else 
-            {
-                JOptionPane.showMessageDialog(this, "Solver failed: " + sol.getClass().getSimpleName());
+            // Nếu không có dữ liệu, giải bài mới
+            if (isEmpty) {
+                // Giải bài từ puzzle hiện tại (khi tất cả ô đều rỗng)
+                Solver sol = gene; // Bạn có thể chọn một thuật toán giải khác tại đây
+                Sudoku solution = sol.solve(puzzle.clone());
+                if (solution != null) {
+                    puzzle = solution;
+                    refreshUIFromModel();
+                    JOptionPane.showMessageDialog(this, "Solved from empty puzzle using: " + sol.getClass().getSimpleName());
+                } else {
+                    JOptionPane.showMessageDialog(this, "Solver failed");
+                }
+            } else {
+                // Nếu có dữ liệu, giải bài sudoku hiện tại đã được nhập
+                String error = validatePuzzle(puzzle);
+                if (error != null) {
+                    JOptionPane.showMessageDialog(this, "Invalid puzzle: " + error);
+                    autoBtn.setEnabled(true);
+                    return;
+                }
+
+                Solver sol = gene; // Bạn có thể chọn một thuật toán giải khác tại đây
+                Sudoku solution = sol.solve(puzzle.clone());
+                if (solution != null) {
+                    puzzle = solution;
+                    refreshUIFromModel();
+                    JOptionPane.showMessageDialog(this, "Solved using: " + sol.getClass().getSimpleName());
+                } else {
+                    JOptionPane.showMessageDialog(this, "Solver failed: " + sol.getClass().getSimpleName());
+                }
             }
 
             autoBtn.setEnabled(true);
         });
+
         bottom.add(autoBtn);
 
         JButton clearBtn = new JButton("Reset");
@@ -153,7 +182,7 @@ public class GUI extends JFrame
 
         add(bottom, BorderLayout.SOUTH);
 
-        // tạo puzzle lúc đầu
+        // KHỞI TẠO ĐẦU TIÊN
         loadSamplePuzzle();
         origin = puzzle.clone();
         refreshUIFromModel();
@@ -163,7 +192,7 @@ public class GUI extends JFrame
         setVisible(true);
     }
 
-    // --- Update UI từ model ---
+    // --- Update UI tá»« model ---
     private void refreshUIFromModel() 
     {
         for (int r = 0; r < 9; r++)
@@ -190,7 +219,7 @@ public class GUI extends JFrame
         }
     }
 
-    // --- Kiểm tra puzzle hợp lệ ---
+    // --- Kiá»ƒm tra puzzle há»£p lá»‡ ---
     private String validatePuzzle(Sudoku s) 
     {
         // Rows
@@ -238,13 +267,13 @@ public class GUI extends JFrame
                         }
                     }
             }
-        return null; // hợp lệ
+        return null; // há»£p lá»‡
     }
 
-    // --- Sinh puzzle từ solution ---
+    // --- Sinh puzzle tá»« solution ---
     private void loadSamplePuzzle() 
     {
-        // 1. Tạo solution đầy đủ
+        // 1. Táº¡o solution Ä‘áº§y Ä‘á»§
         Sudoku full = new Sudoku();
         full.fillRandomRows(rd);
         Sudoku solved = gene.solve(full);
@@ -253,7 +282,7 @@ public class GUI extends JFrame
         // 2. Copy solution sang puzzle
         int[][] puzzleData = solved.getGridCopy();
 
-        // 3. Shuffle các vị trí bằng swap tự làm
+        // 3. Shuffle cÃ¡c vá»‹ trÃ­ báº±ng swap tá»± lÃ m
         ArrayList<int[]> positions = new ArrayList<>();
         for (int r = 0; r < 9; r++)
             for (int c = 0; c < 9; c++)
@@ -267,7 +296,7 @@ public class GUI extends JFrame
             positions.set(j, tmp);
         }
 
-        // 4. Giữ lại 25-40 ô, còn lại = 0
+        // 4. Giá»¯ láº¡i 25-40 Ã´, cÃ²n láº¡i = 0
         int clues = rd.nextInt(25, 40);
         for (int i = clues; i < 81; i++) 
         {
