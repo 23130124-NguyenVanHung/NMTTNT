@@ -4,7 +4,6 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.ArrayList;
 import java.util.Random;
-
 import javax.swing.*;
 
 public class GUI extends JFrame
@@ -12,12 +11,17 @@ public class GUI extends JFrame
     private JTextField[][] cells = new JTextField[9][9];
     private Sudoku origin;
     private Sudoku puzzle;
+
     private Solver gene = new Genetic();
     private Solver hill = new Hill_Climbing();
     private Solver sia = new Simulated_Annealing();
     private Random rd = new Random();
-    
-// ====== GIAO DIỆN GAME ======
+
+    // ===== FONT =====
+    private final Font FONT_FIXED  = new Font(Font.SANS_SERIF, Font.BOLD, 18);
+    private final Font FONT_NORMAL = new Font(Font.SANS_SERIF, Font.PLAIN, 18);
+
+    // ====== GUI ======
     public GUI()
     {
         setTitle("Game - Sudoku");
@@ -25,50 +29,45 @@ public class GUI extends JFrame
         setLayout(new BorderLayout());
 
         JPanel gridPanel = new JPanel(new GridLayout(9, 9));
-        Font cellFont = new Font(Font.SANS_SERIF, Font.BOLD, 18);
 
-//	LẤP ĐẦY PUZZLE RA MÀN HÌNH GAME
+        // ===== GRID =====
         for (int r = 0; r < 9; r++)
         {
             for (int c = 0; c < 9; c++)
             {
                 JTextField tf = new JTextField();
                 tf.setHorizontalAlignment(JTextField.CENTER);
-                tf.setFont(cellFont);
+                tf.setFont(FONT_NORMAL);
 
-                int rr = r;
-                int cc = c;
+                int rr = r, cc = c;
 
+                // chỉ cho nhập 1-9
                 tf.addKeyListener(new KeyAdapter() 
                 {
                     @Override
                     public void keyTyped(KeyEvent e) 
                     {
                         char ch = e.getKeyChar();
-                        if (!Character.isDigit(ch) || ch == '0') e.consume();
-                        if (tf.getText().length() >= 1) e.consume();
+                        if (!Character.isDigit(ch) || ch == '0' || tf.getText().length() >= 1)
+                            e.consume();
                     }
                 });
 
+                // cập nhật model
                 tf.addKeyListener(new KeyAdapter() 
                 {
                     @Override
                     public void keyReleased(KeyEvent e) 
                     {
+                        if (puzzle.isFixed(rr, cc)) return;
+
                         String t = tf.getText();
                         if (t.isEmpty()) puzzle.set(rr, cc, 0);
-                        else {
-                            char ch = t.charAt(0);
-                            if (ch >= '1' && ch <= '9' && !puzzle.isFixed(rr, cc))
-                                puzzle.set(rr, cc, ch - '0');
-                            else {
-                                tf.setText("");
-                                puzzle.set(rr, cc, 0);
-                            }
-                        }
+                        else puzzle.set(rr, cc, t.charAt(0) - '0');
                     }
                 });
 
+                // chuột phải → fixed
                 tf.addMouseListener(new MouseAdapter() 
                 {
                     @Override
@@ -84,95 +83,71 @@ public class GUI extends JFrame
                 });
 
                 cells[r][c] = tf;
-                
-// 		PHÂN VÙNG CÁC VÙNG 3x3 VÀ TÔ VIỀN ĐỂ DỄ CHƠI VÀ CHECK KHI SINH NGẪU NHIÊN
-                JPanel cellWrapper = new JPanel(new BorderLayout());
-                cellWrapper.add(tf, BorderLayout.CENTER);
 
-                int top = (r % 3 == 0) ? 3 : 1;
-                int left = (c % 3 == 0) ? 3 : 1;
+                JPanel wrap = new JPanel(new BorderLayout());
+                wrap.add(tf);
+
+                int top    = (r % 3 == 0) ? 3 : 1;
+                int left   = (c % 3 == 0) ? 3 : 1;
                 int bottom = (r == 8) ? 3 : 1;
-                int right = (c == 8) ? 3 : 1;
+                int right  = (c == 8) ? 3 : 1;
 
-                cellWrapper.setBorder(BorderFactory.createMatteBorder(top, left, bottom, right, Color.BLACK));
-                gridPanel.add(cellWrapper);
+                wrap.setBorder(BorderFactory.createMatteBorder(
+                        top, left, bottom, right, Color.BLACK));
+
+                gridPanel.add(wrap);
             }
         }
 
         add(gridPanel, BorderLayout.CENTER);
-        
-// 	=== THANH CHỨA CÁC NÚT CỦA GAME ===
+
+        // ===== BUTTONS =====
         JPanel bottom = new JPanel();
-	
+
         JButton autoBtn = new JButton("Complete");
         autoBtn.addActionListener(e -> {
             autoBtn.setEnabled(false);
 
-            // Kiểm tra nếu toàn bộ bảng không có dữ liệu
-            boolean isEmpty = true;
-            for (int r = 0; r < 9; r++) {
-                for (int c = 0; c < 9; c++) {
-                    if (puzzle.get(r, c) != 0) {
-                        isEmpty = false;
-                        break;
-                    }
-                }
-                if (!isEmpty) break;
+            String err = validatePuzzle(puzzle);
+            if (err != null) {
+                JOptionPane.showMessageDialog(this, err);
+                autoBtn.setEnabled(true);
+                return;
             }
 
-            // Nếu không có dữ liệu, giải bài mới
-            if (isEmpty) {
-                // Giải bài từ puzzle hiện tại (khi tất cả ô đều rỗng)
-                Solver sol = gene; // Bạn có thể chọn một thuật toán giải khác tại đây
-                Sudoku solution = sol.solve(puzzle.clone());
-                if (solution != null) {
-                    puzzle = solution;
-                    refreshUIFromModel();
-                    JOptionPane.showMessageDialog(this, "Solved from empty puzzle using: " + sol.getClass().getSimpleName());
-                } else {
-                    JOptionPane.showMessageDialog(this, "Solver failed");
-                }
+            Sudoku solved = gene.solve(puzzle.clone());
+            if (solved != null) {
+                // GIỮ FIXED – CHỈ ĐIỀN Ô TRỐNG
+                for (int r = 0; r < 9; r++)
+                    for (int c = 0; c < 9; c++)
+                        if (!puzzle.isFixed(r, c))
+                            puzzle.set(r, c, solved.get(r, c));
+
+                refreshUIFromModel();
+                JOptionPane.showMessageDialog(this, "Solved!");
             } else {
-                // Nếu có dữ liệu, giải bài sudoku hiện tại đã được nhập
-                String error = validatePuzzle(puzzle);
-                if (error != null) {
-                    JOptionPane.showMessageDialog(this, "Invalid puzzle: " + error);
-                    autoBtn.setEnabled(true);
-                    return;
-                }
-
-                Solver sol = gene; // Bạn có thể chọn một thuật toán giải khác tại đây
-                Sudoku solution = sol.solve(puzzle.clone());
-                if (solution != null) {
-                    puzzle = solution;
-                    refreshUIFromModel();
-                    JOptionPane.showMessageDialog(this, "Solved using: " + sol.getClass().getSimpleName());
-                } else {
-                    JOptionPane.showMessageDialog(this, "Solver failed: " + sol.getClass().getSimpleName());
-                }
+                JOptionPane.showMessageDialog(this, "Solver failed!");
             }
-
             autoBtn.setEnabled(true);
         });
 
         bottom.add(autoBtn);
 
-        JButton clearBtn = new JButton("Reset");
-        clearBtn.addActionListener(e -> {
+        JButton resetBtn = new JButton("Reset");
+        resetBtn.addActionListener(e -> {
             puzzle = origin.clone();
             refreshUIFromModel();
         });
-        bottom.add(clearBtn);
+        bottom.add(resetBtn);
 
-        JButton sampleBtn = new JButton("Load sample puzzle");
+        JButton sampleBtn = new JButton("Load sample");
         sampleBtn.addActionListener(e -> {
             loadSamplePuzzle();
-            origin = puzzle.clone();
             refreshUIFromModel();
         });
         bottom.add(sampleBtn);
 
-        JButton emptyBtn = new JButton("All is empty");
+        JButton emptyBtn = new JButton("All empty");
         emptyBtn.addActionListener(e -> {
             puzzle = new Sudoku();
             origin = puzzle.clone();
@@ -182,9 +157,8 @@ public class GUI extends JFrame
 
         add(bottom, BorderLayout.SOUTH);
 
-        // KHỞI TẠO ĐẦU TIÊN
+        // ===== INIT =====
         loadSamplePuzzle();
-        origin = puzzle.clone();
         refreshUIFromModel();
 
         setSize(640, 720);
@@ -192,125 +166,90 @@ public class GUI extends JFrame
         setVisible(true);
     }
 
-    // --- Update UI tá»« model ---
-    private void refreshUIFromModel() 
+    // ===== UPDATE UI =====
+    private void refreshUIFromModel()
     {
         for (int r = 0; r < 9; r++)
-            for (int c = 0; c < 9; c++) 
-            {
-                int v = puzzle.get(r, c);
+            for (int c = 0; c < 9; c++) {
                 JTextField tf = cells[r][c];
+                int v = puzzle.get(r, c);
                 tf.setText(v == 0 ? "" : String.valueOf(v));
                 updateCellAppearance(r, c);
             }
     }
 
-    private void updateCellAppearance(int r, int c) 
+    private void updateCellAppearance(int r, int c)
     {
         JTextField tf = cells[r][c];
-        if (puzzle.isFixed(r, c)) 
-        {
+        if (puzzle.isFixed(r, c)) {
             tf.setBackground(new Color(220, 220, 220));
             tf.setEditable(false);
-        } else 
-        {
+            tf.setFont(FONT_FIXED);   // ⭐ ĐỀ ĐẬM
+        } else {
             tf.setBackground(Color.WHITE);
             tf.setEditable(true);
+            tf.setFont(FONT_NORMAL); // ⭐ solver / nhập tay
         }
     }
 
-    // --- Kiá»ƒm tra puzzle há»£p lá»‡ ---
-    private String validatePuzzle(Sudoku s) 
+    // ===== VALIDATE =====
+    private String validatePuzzle(Sudoku s)
     {
-        // Rows
-        for (int r = 0; r < 9; r++) 
-        {
-            boolean[] seen = new boolean[10];
-            for (int c = 0; c < 9; c++) 
-            {
-                int v = s.get(r, c);
-                if (v != 0) 
-                {
-                    if (seen[v]) return "Row " + (r + 1) + " has duplicates";
-                    seen[v] = true;
-                }
+        for (int i = 0; i < 9; i++) {
+            boolean[] row = new boolean[10];
+            boolean[] col = new boolean[10];
+            for (int j = 0; j < 9; j++) {
+                int r = s.get(i, j);
+                int c = s.get(j, i);
+                if (r != 0 && row[r]) return "Row " + (i+1) + " duplicate";
+                if (c != 0 && col[c]) return "Column " + (i+1) + " duplicate";
+                if (r != 0) row[r] = true;
+                if (c != 0) col[c] = true;
             }
         }
-        // Columns
-        for (int c = 0; c < 9; c++) 
-        {
-            boolean[] seen = new boolean[10];
-            for (int r = 0; r < 9; r++) 
-            {
-                int v = s.get(r, c);
-                if (v != 0) 
-                {
-                    if (seen[v]) return "Column " + (c + 1) + " has duplicates";
-                    seen[v] = true;
-                }
-            }
-        }
-        // Blocks
-        for (int br = 0; br < 3; br++)
-            for (int bc = 0; bc < 3; bc++) 
-            {
-                boolean[] seen = new boolean[10];
-                for (int r = br * 3; r < br * 3 + 3; r++)
-                    for (int c = bc * 3; c < bc * 3 + 3; c++) 
-                    {
-                        int v = s.get(r, c);
-                        if (v != 0) 
-                        {
-                            if (seen[v])
-                                return "Block starting at (" + (br * 3 + 1) + "," + (bc * 3 + 1) + ") has duplicates";
-                            seen[v] = true;
-                        }
-                    }
-            }
-        return null; // há»£p lá»‡
+        return null;
     }
 
-    // --- Sinh puzzle tá»« solution ---
-    private void loadSamplePuzzle() 
+    // ===== LOAD SAMPLE =====
+    private void loadSamplePuzzle()
     {
-        // 1. Táº¡o solution Ä‘áº§y Ä‘á»§
         Sudoku full = new Sudoku();
         full.fillRandomRows(rd);
         Sudoku solved = gene.solve(full);
-        if (solved == null) solved = full; // fallback
 
-        // 2. Copy solution sang puzzle
-        int[][] puzzleData = solved.getGridCopy();
+        int[][] data = solved.getGridCopy();
 
-        // 3. Shuffle cÃ¡c vá»‹ trÃ­ báº±ng swap tá»± lÃ m
-        ArrayList<int[]> positions = new ArrayList<>();
+        ArrayList<int[]> pos = new ArrayList<>();
         for (int r = 0; r < 9; r++)
             for (int c = 0; c < 9; c++)
-                positions.add(new int[]{r, c});
+                pos.add(new int[]{r, c});
 
-        for (int i = positions.size() - 1; i > 0; i--) 
-        {
-            int j = rd.nextInt(i + 1);
-            int[] tmp = positions.get(i);
-            positions.set(i, positions.get(j));
-            positions.set(j, tmp);
+        for (int i = pos.size()-1; i > 0; i--) {
+            int j = rd.nextInt(i+1);
+            int[] t = pos.get(i);
+            pos.set(i, pos.get(j));
+            pos.set(j, t);
         }
 
-        // 4. Giá»¯ láº¡i 25-40 Ã´, cÃ²n láº¡i = 0
         int clues = rd.nextInt(25, 40);
-        for (int i = clues; i < 81; i++) 
-        {
-            int r = positions.get(i)[0];
-            int c = positions.get(i)[1];
-            puzzleData[r][c] = 0;
+        for (int i = clues; i < 81; i++) {
+            int[] p = pos.get(i);
+            data[p[0]][p[1]] = 0;
         }
 
-        puzzle = new Sudoku(puzzleData);
+        puzzle = new Sudoku(data);
+
+        // ⭐ SET FIXED
+        for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++)
+                if (puzzle.get(r, c) != 0)
+                    puzzle.setFixed(r, c, true);
+
         origin = puzzle.clone();
     }
 
-    public static void main(String[] args) 
+    public static void main(String[] args)
     {
-        SwingUtilities.invokeLater(() -> new GUI());
+        SwingUtilities.invokeLater(GUI::new);
     }
 }

@@ -9,7 +9,7 @@ import java.util.*;
  */
 public class Genetic implements Solver
 {
-    private int populationSize = 200;
+    private int populationSize = 500;
     private int maxGenerations = 2000;
     private double mutationRate = 0.06;
     private Random rd = new Random();
